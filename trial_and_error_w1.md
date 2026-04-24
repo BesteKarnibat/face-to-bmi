@@ -2,20 +2,15 @@
 
 ## Image Preprocessing
 
-Tried two approaches for standardizing images:
+- Problem: Images inconsistent (size, format, missing ~244 images, lots of background)
 
-- MTCNN alignment
-  - Some images failed (~6%)
-  - Added black padding after rotation
+- Tried:
+  - MTCNN alignment (faces_aligned)
+    - Better face focus
+    - ~6% failures + padding issues
+  - Simple pad/resize (faces_standardized)
+    - No failures, faster, preserves proportions
 
-- Simple resize/pad
-  - No failures
-  - Faster and cleaner
+- Suggestion: Use faces_standardized for now (more stable)
 
-Decided to use simple resize for now.
-
-Also noticed dataset issues:
-- Missing ~244 images
-- Sizes and formats all over the place
-
-Next: run model on standardized images
+- Next: run feature extraction + compare to baseline
