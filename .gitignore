@@ -221,6 +221,9 @@ models/*.h5
 models/*.pth
 weights/
 
+*.npy
+*.joblib
+
 # virtual environment
 .venv/
 __pycache__/
