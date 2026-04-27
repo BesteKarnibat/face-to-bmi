@@ -28,6 +28,7 @@ face-to-bmi/
 ├── README.md                 ← this file
 ├── requirements.txt          ← unified Python dependencies
 ├── split_ids.csv             ← CANONICAL train/test split — use this everywhere
+├── pipeline_v1.py            ← W2: end-to-end inference pipeline (Role 1)
 ├── app.py                    ← Streamlit web app (Role 5)
 ├── trial_and_error_w1.md     ← team-level weekly engineering log (Role 6)
 │
@@ -123,9 +124,17 @@ test  = splits[splits.split == "test"]    # 752 rows
 └─────────┬──────────────────┘
           │ Role 4 (Beste) — SVR, MLP, fine-tune
           ▼
-┌──────────────────────┐
-│ models/final_model.* │   target Pearson r > 0.65
-└─────────┬────────────┘
+┌──────────────────────────────────────────┐
+│ models/beste/models/svr_*.joblib         │   Pipeline(StandardScaler + SVR)
+│   svr_vgg_tuned.joblib       (4096→BMI)  │   ensemble best so far: r ≈ 0.65
+│   svr_facenet_tuned.joblib   (512→BMI)   │
+└─────────┬────────────────────────────────┘
+          │ Role 1 (Wade) — pipeline_v1.py
+          ▼
+┌──────────────────────────────────────────┐
+│ pipeline_v1.py                           │   image → {bmi, confidence, backbone}
+│   FaceToBMIPipeline.predict()            │   MTCNN crop → DeepFace embed → SVR
+└─────────┬────────────────────────────────┘
           │ Role 5 (Dhruvi)
           ▼
 ┌──────────────────────┐
@@ -142,7 +151,8 @@ test  = splits[splits.split == "test"]    # 752 rows
 | Face crop / standardize | raw .bmp | 224×224 RGB BMP, filename = `img_<id>.bmp` | Role 2 |
 | Feature extraction | 224×224 RGB | `features.npy` shape `(N, D)`, indexed by `image_id` order | Role 3 |
 | Regression | `(N, D)` features + BMI labels | scalar BMI prediction | Role 4 |
-| API | image bytes | `{ "bmi": float, "confidence": float }` (TBD W3) | Role 5 |
+| Inference | image (path / bytes / PIL / ndarray) | `{ "bmi": float, "confidence": float, "backbone": str }` | Role 1 (`pipeline_v1.py`) |
+| API | image bytes | calls `FaceToBMIPipeline.predict()` and renders result | Role 5 |
 
 **Random seed convention:** `random_state = 42` everywhere (sklearn, numpy, torch).
 
@@ -164,21 +174,65 @@ pip install -r requirements.txt
 # 4. Verify the canonical split
 python -c "import pandas as pd; print(pd.read_csv('split_ids.csv').groupby('split').size())"
 
-# 5. Run the web app (W1 version: upload + preview only)
+# 5. Sanity-check the inference pipeline (loads Beste's joblibs + features)
+python pipeline_v1.py
+
+# 6. Run the web app
 streamlit run app.py
 ```
 
 ---
 
+## Inference Pipeline (`pipeline_v1.py`)
+
+End-to-end: image in, BMI out. Use this anywhere we need a single prediction
+(Streamlit, REST API, batch eval, ad-hoc scripts).
+
+```python
+from pipeline_v1 import FaceToBMIPipeline
+
+pipe = FaceToBMIPipeline()                       # backbone='ensemble' (default)
+result = pipe.predict("photo.jpg")
+# {'bmi': 25.4, 'confidence': 0.82, 'backbone': 'ensemble'}
+```
+
+### Backbone options
+
+| Backbone | What it loads | Reported r (test) |
+|---|---|---|
+| `vgg` | `svr_vgg_tuned.joblib` only | 0.6261 (Beste) |
+| `facenet` | `svr_facenet_tuned.joblib` only | — |
+| `ensemble` *(default)* | both, averages predictions | **0.6469** (Beste) |
+
+### Accepted input types
+
+`predict()` accepts: file path (`str` / `Path`), raw image `bytes`, `PIL.Image`,
+HxWx3 `np.ndarray`, or a file-like object (e.g. Streamlit's `UploadedFile`).
+
+### Reproducibility
+
+Inference replicates Beste's training-time DeepFace call exactly:
+`model_name='VGG-Face' | 'Facenet512'`, `enforce_detection=False`,
+`detector_backend='skip'`. Beste's joblib is a `Pipeline(StandardScaler + SVR)`
+— scaling is applied internally; do **not** pre-scale.
+
+### Integration sanity test
+
+`python pipeline_v1.py` loads Beste's saved test features and verifies the
+regressor produces her reported Pearson r values. Run after pulling new
+`.joblib` or `.npy` files from Drive.
+
+---
+
 ## Roadmap
 
-| Week | Phase | Headline goal |
-|---|---|---|
-| **W1** | Baseline replication | Match paper's r ≈ 0.65 with VGG-Face + SVR |
-| W2 | Data & UI integration | Augmentation; UI shows face-crop preview |
-| W3 | Model optimization | Swap backbone (ResNet50 / ArcFace / fine-tune) — beat 0.65 |
-| W4 | System API & inference | RESTful API + webcam streaming |
-| W5 | Final delivery | Cloud deploy + 10-page report + 3-min demo video |
+| Week | Phase | Headline goal | Status |
+|---|---|---|---|
+| W1 | Baseline replication | Match paper's r ≈ 0.65 with VGG-Face + SVR | ✅ done (ensemble: 0.6469) |
+| **W2** | Inference + UI integration | `pipeline_v1.py` end-to-end; Streamlit calls into it | 🟡 in progress |
+| W3 | Model optimization | Swap backbone (ResNet50 / ArcFace / fine-tune) — beat 0.65 | |
+| W4 | System API & inference | RESTful API + webcam streaming | |
+| W5 | Final delivery | Cloud deploy + 10-page report + 3-min demo video | |
 
 ---
 

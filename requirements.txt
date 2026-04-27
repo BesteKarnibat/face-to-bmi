@@ -1,5 +1,5 @@
 # ============================================================
-# face-to-bmi — Unified Python Dependencies (Week 1)
+# face-to-bmi — Unified Python Dependencies (W1 + W2)
 # ============================================================
 # Tested on Python 3.10 (Google Colab default).
 # Install:  pip install -r requirements.txt
@@ -13,7 +13,7 @@
 numpy>=1.24,<2.0
 pandas>=2.0,<2.3
 scipy>=1.10
-scikit-learn>=1.3,<1.6
+scikit-learn>=1.6,<1.8         # Beste's saved joblibs are pickled with sklearn 1.6.1 — widen range so loading works
 joblib>=1.3
 
 # --- Deep learning ---
