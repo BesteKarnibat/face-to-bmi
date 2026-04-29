@@ -1,94 +1,146 @@
 ## Week 1 Trial & Error Log
 
-### Image Preprocessing
+### 1. Initial Data Audit
 
-**Problem:**  
-Images were inconsistent in size and format, with ~244 missing images and significant background noise.
+**Goal:** Understand raw dataset quality before preprocessing.
 
----
-
-### Tried
-
-**1. MTCNN Alignment (faces_aligned)**  
-- Improved face focus  
-- ~6% failure rate  
-- Introduced padding issues and black borders  
-
-**2. Simple Pad/Resize (faces_standardized)**  
-- No failures  
-- Faster processing  
-- Preserved proportions  
-- Selected as the stable baseline for Week 1  
-
-**3. Landmark-based Alignment (faces_aligned_v3)**  
-- Replaced bbox + margin method with landmark-driven alignment  
-- Rotates faces to align eyes and uses eye-to-mouth distance for scaling  
-- FFHQ-style cropping applied  
-
-**Results:**  
-- Padding significantly reduced  
-- Black border issue largely eliminated  
-- No aspect ratio distortion  
-- Visually cleaner and more consistent faces  
+**Findings:**
+- CSV records: 4206
+- Actual images: 3962 → **244 missing**
+- Image dimensions vary widely: 41×52 → 900×1222
+- File sizes: 6 KB → 3 MB
+- Most images are portrait (aspect ratio ≈ 0.8)
+- Faces occupy ~40% of image area → significant background noise
+- 8 images in palette (P) mode, rest RGB
 
 **Conclusion:**  
-faces_aligned_v3 shows clear improvement and should be considered for future experiments.
+Dataset is highly inconsistent → requires standardization before feature extraction.
 
 ---
 
-### Feature Extraction Issues
+### 2. Image Preprocessing Approaches
 
-**Problem:**  
-Model performance was significantly below the paper benchmark.
+#### Approach 1: MTCNN Alignment (`faces_aligned/`)
+- Face detection + eye alignment (horizontal leveling)
+- Cropped around face and resized to 224×224
 
-**Root Cause:**  
-- ImageNet normalization was applied to VGG-Face  
-- VGG-Face expects BGR mean subtraction  
-- This mismatch distorted the 4096D feature representations  
+**Pros:**
+- Better face focus
+- Eye alignment improves consistency
 
-**Fix:**  
-- Re-extracted features using correct VGG-Face preprocessing  
-- Released updated dataset: `handoff_v3`
-
----
-
-### Data Consistency Issue
-
-**Problem:**  
-- CSV contained 4206 records  
-- Only 3962 images available  
-
-**Resolution:**  
-- Final aligned dataset:  
-  - Train: 3210 samples  
-  - Test: 752 samples  
-- Confirmed consistency across all team pipelines  
+**Cons:**
+- ~6% failure rate (fallback needed)
+- Rotation introduces black padding (corner artifacts)
+- More complex pipeline
 
 ---
 
-### Modeling Observations
+#### Approach 2: Simple Pad + Resize (`faces_standardized/`)
+- No face detection
+- Pad to square with black borders → resize to 224×224
 
-- SVR on initial features performed poorly (r ≈ 0.35–0.40)  
-- Ensemble (VGG + FaceNet) achieved r = 0.6469 (close to paper but not exceeding it)  
-- Indicates feature quality and preprocessing are critical  
-- Classical ML models show limitations on these embeddings  
+**Pros:**
+- 0% failure rate
+- Preserves face proportions
+- Faster and simpler
+- Less severe padding artifacts than alignment method
+
+**Cons:**
+- No facial alignment
+
+---
+
+### Decision (End of Week 1)
+
+- Selected **faces_standardized** as the default pipeline  
+- Reason: stability > complexity for baseline reproducibility  
+- faces_aligned kept as backup for experimentation  
+
+---
+
+### 3. Data Consistency Issue
+
+**Problem Identified:**
+- Mismatch between CSV (4206) and available images (3962)
+
+**Impact:**
+- Incorrect expected shapes in feature extraction
+- Potential misalignment between features and labels
+
+**Resolution:**
+- Filtered dataset to valid images only
+- Final split:
+  - Train: 3210 samples
+  - Test: 752 samples
+- Standardized across team using `split_ids.csv`
+
+---
+
+### 4. Feature Extraction + Early Modeling Issues
+
+**Initial Goal:** Match paper baseline performance
+
+**Observations:**
+- VGG-Face and FaceNet tested
+- Could not reach paper performance
+- Ensemble (VGG + FaceNet) reached **r ≈ 0.6469** (close but not exceeding)
+
+---
+
+### 5. Critical Bug Identified (Normalization)
+
+**Problem:**
+- Used ImageNet normalization for VGG-Face
+
+**Why this is wrong:**
+- VGG-Face is trained on face data with **different input distribution**
+- ImageNet normalization shifts pixel values incorrectly
+- Result: distorted 4096D feature representations
+
+**Impact:**
+- Models underperform despite correct pipeline structure
+- Features lose semantic meaning
+
+---
+
+### 6. Fix Applied
+
+- Switched to **VGG-Face specific preprocessing (BGR mean subtraction)**
+- Re-extracted features
+- Released corrected feature set (`handoff_v3`)
+
+---
+
+### 7. Pipeline + Reproducibility Decisions
+
+- Set `random_state = 42` for consistent splits
+- Ensured pipeline is reusable for future augmentation
+- Saved filenames alongside features → guarantees row alignment
+- Introduced standardized train/test split (`3210 / 752`)
+
+---
+
+### 8. Additional Improvements
+
+**Landmark-based Alignment (faces_aligned_v3):**
+- Replaced bbox cropping with landmark-driven alignment
+- Rotates face to align eyes
+- Uses eye-to-mouth distance for scaling
+- FFHQ-style cropping
+
+**Results:**
+- Significant reduction in padding
+- Black border issue largely removed
+- No distortion in aspect ratio
+- Visually cleaner than previous methods
 
 ---
 
 ### Key Takeaways
 
-- faces_standardized provided a reliable baseline for Week 1  
-- Incorrect normalization was a major hidden issue affecting performance  
-- handoff_v3 resolves feature extraction inconsistencies  
-- Consistent dataset alignment and reproducibility are critical  
-- Likely need to move toward deep learning or fine-tuning approaches  
-
----
-
-### Next Steps
-
-- Compare faces_standardized vs faces_aligned_v3 for feature extraction  
-- Use only `handoff_v3` features for modeling  
-- Test MLP on 4096D features  
-- Move to end-to-end CNN fine-tuning if performance remains below benchmark  
-- Continue tracking preprocessing impact on model performance  
+- Raw dataset inconsistency was a major challenge
+- Simple preprocessing (faces_standardized) provided the most reliable baseline
+- Alignment methods improve quality but introduce trade-offs
+- Data mismatch (CSV vs images) required correction before modeling
+- **Incorrect normalization was the biggest hidden issue affecting performance**
+- Reproducibility (splits, seeds, pipelines) is critical for team coordination
