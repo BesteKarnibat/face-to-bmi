@@ -222,7 +222,6 @@ models/*.pth
 weights/
 
 *.npy
-*.joblib
 
 # virtual environment
 .venv/
