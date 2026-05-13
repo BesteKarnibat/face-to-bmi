@@ -16,8 +16,8 @@ We predict a person's BMI from a single face image, fine-tune a pre-trained face
 | 2 | Data Engineer | Zihao Huang (Edward) | Face detection + standardization (`notebooks/data/`) |
 | 3 | ML Researcher A — Feature Architect | Ryan (Jung) Chen | Feature extraction notebooks (`models/ryan/`) |
 | 4 | ML Researcher B — Optimization | Beste Karnibat | Baseline SVR + tuning (`models/beste/`) |
-| 5 | Full-Stack & API Developer | Dhruvi Gandhi | `app.py` (Streamlit) |
-| 6 | Technical Writer & Analyst | Junny Choi | `trial_and_error_w1.md` |
+| 5 | Full-Stack & API Developer | Dhruvi Gandhi | `1_Upload.py`, `pages/2_Webcam.py` (Streamlit) |
+| 6 | Technical Writer & Analyst | Junny Choi | `docs/trial_and_error_w1.md` |
 
 ---
 
@@ -27,10 +27,13 @@ We predict a person's BMI from a single face image, fine-tune a pre-trained face
 face-to-bmi/
 ├── README.md                 ← this file
 ├── requirements.txt          ← unified Python dependencies
+├── requirements_api.txt      ← lightweight API dependencies
 ├── split_ids.csv             ← CANONICAL train/test split — use this everywhere
 ├── pipeline_v1.py            ← W2: end-to-end inference pipeline (Role 1)
-├── app.py                    ← Streamlit web app (Role 5)
-├── trial_and_error_w1.md     ← team-level weekly engineering log (Role 6)
+├── 1_Upload.py               ← Streamlit upload workflow (Role 5)
+├── api.py                    ← Flask API backend (Role 5)
+├── client.py                 ← API client / demo helper
+├── test_api.py               ← API smoke tests
 │
 ├── data/
 │   ├── raw/                  ← original VisualBMI images (gitignored — pulled from Google Drive)
@@ -41,6 +44,13 @@ face-to-bmi/
 │       ├── faces_standardized/   ← simple pad/resize, 224×224 RGB BMP  ← USE THIS for now
 │       ├── audit_log.csv         ← per-image dimensions / mode / aspect ratio / exists
 │       └── standardization_log.csv
+│
+├── pages/
+│   └── 2_Webcam.py           ← Streamlit webcam workflow
+│
+├── src/
+│   ├── dataset.py            ← PyTorch/TF dataset utilities
+│   └── inference_preprocess.py ← inference-time preprocessing helpers
 │
 ├── notebooks/
 │   └── data/                 ← Role 2: data preparation pipeline
@@ -53,12 +63,21 @@ face-to-bmi/
 │   │   ├── VGG 02_feature_extraction.ipynb
 │   │   ├── Facenet512 02_feature_extraction.ipynb
 │   │   ├── 03_svr_baseline.ipynb
-│   │   ├── features/         ← X/y/gender/names .npy splits (gitignored)
-│   │   └── models/           ← tuned .joblib SVRs (gitignored)
+│   │   ├── SVM_MLP_v3.ipynb
+│   │   ├── features/         ← X/y/gender/names .npy splits
+│   │   └── models/           ← tuned .joblib SVRs
 │   └── ryan/                 ← Role 3: feature extraction iterations
 │       ├── feature-extraction-v1.ipynb
 │       ├── feature-extraction-v2.ipynb
 │       └── feature-verification-v1.ipynb
+│
+├── docs/
+│   ├── HANDOFF_inference_preprocess.md
+│   └── trial_and_error_w1.md ← team-level weekly engineering log (Role 6)
+│
+├── archive/
+│   ├── app_backups/          ← old app backups kept out of the root
+│   └── update_scripts/       ← old one-off repo update scripts
 │
 └── .gitignore                ← keeps images, .npy, .pth, .joblib out of git
 ```
@@ -138,7 +157,7 @@ test  = splits[splits.split == "test"]    # 752 rows
           │ Role 5 (Dhruvi)
           ▼
 ┌──────────────────────┐
-│ app.py (Streamlit)   │   upload / webcam → BMI prediction
+│ Streamlit app        │   1_Upload.py + pages/2_Webcam.py
 └──────────────────────┘
 ```
 
@@ -178,7 +197,7 @@ python -c "import pandas as pd; print(pd.read_csv('split_ids.csv').groupby('spli
 python pipeline_v1.py
 
 # 6. Run the web app
-streamlit run app.py
+streamlit run 1_Upload.py
 ```
 
 ---

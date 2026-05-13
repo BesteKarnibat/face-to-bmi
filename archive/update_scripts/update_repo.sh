@@ -13,7 +13,7 @@ echo ""
 # Configuration
 REPO_URL="https://github.com/BesteKarnibat/face-to-bmi.git"
 REPO_DIR="face-to-bmi"
-BACKUP_DIR="app_backups"
+BACKUP_DIR="archive/app_backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # ============================================================================
